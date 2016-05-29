@@ -31,6 +31,7 @@ import cats.syntax.traverse._
   */
 sealed trait FetchRequest[I, A] extends Product with Serializable {
   def fullfilledBy(cache: DataSourceCache): Boolean
+  def missingIdentities(cache: DataSourceCache): List[I]
   def dataSource: DataSource[I, A]
   def identities: NonEmptyList[I]
 }
@@ -47,6 +48,9 @@ final case class FetchOne[I, A](a: I, ds: DataSource[I, A])
   override def fullfilledBy(cache: DataSourceCache): Boolean = {
     cache.get(ds.identity(a)).isDefined
   }
+  override def missingIdentities(cache: DataSourceCache): List[I] = {
+    cache.get(ds.identity(a)).fold(List(a))((res: Any) => Nil)
+  }
   override def dataSource: DataSource[I, A] = ds
   override def identities: NonEmptyList[I]  = NonEmptyList(a, Nil)
 }
@@ -55,6 +59,9 @@ final case class FetchMany[I, A](as: NonEmptyList[I], ds: DataSource[I, A])
     with FetchRequest[I, A] {
   override def fullfilledBy(cache: DataSourceCache): Boolean = {
     as.forall((i: I) => cache.get(ds.identity(i)).isDefined)
+  }
+  override def missingIdentities(cache: DataSourceCache): List[I] = {
+    as.unwrap.distinct.filterNot(i => cache.get(ds.identity(i)).isDefined)
   }
   override def dataSource: DataSource[I, A] = ds
   override def identities: NonEmptyList[I]  = as
