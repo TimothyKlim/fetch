@@ -3,3 +3,7 @@ scala:
   - 2.11.8
 jdk:
   - oraclejdk8
+script:
+  - sbt test
+  - sbt 'docs/tut'
+  - sbt 'readme/tut'
