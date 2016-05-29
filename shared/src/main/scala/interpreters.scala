@@ -47,8 +47,9 @@ trait FetchInterpreters {
             case Concurrent(manies) => {
                 val startRound = System.nanoTime()
                 val cache      = env.cache
-                val sources    = manies.map(_.ds)
-                val ids        = manies.map(_.as)
+
+                val sources = manies.map(_.dataSource)
+                val ids     = manies.map(_.identities)
 
                 val sourcesAndIds = (sources zip ids)
                   .map({
@@ -69,6 +70,13 @@ trait FetchInterpreters {
                 else
                   Task
                     .sequence(sourcesAndIds.map({
+                      case (ds, as) if as.unwrap.size == 1 => {
+                          ds.asInstanceOf[DataSource[I, A]]
+                            .fetchOne(as.head.asInstanceOf[I])
+                            .map((r: Option[A]) =>
+                                  r.fold(Map.empty[I, A])((result: A) => Map(as.head -> result)))
+                        }
+
                       case (ds, as) =>
                         ds.asInstanceOf[DataSource[I, A]]
                           .fetchMany(as.asInstanceOf[NonEmptyList[I]])
